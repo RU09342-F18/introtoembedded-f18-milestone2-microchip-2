@@ -55,6 +55,7 @@ void configureUART() {
     UCA1MCTL |= UCBRS_3 | UCBRF_0;
     UCA1CTL1 &= ~UCSWRST;
     UCA1IE |= UCTXIE;
+    UCA1IE |= UCRXIE;
 }
 
 void configureADC() {
@@ -95,6 +96,11 @@ __interrupt void uart(void) {
             __delay_cycles(5000);
             ADC12CTL0 |= ADC12SC;
         }
+    }
+
+    if (UCA1IFG & UCRXIFG) {
+        unsigned char data = UCA1RXBUF; // Read data and clear flag
+        desiredTemperature = data; // Set the new temperature to target
     }
 
     P4OUT &= ~BIT7; // Turn off the onboard LED
