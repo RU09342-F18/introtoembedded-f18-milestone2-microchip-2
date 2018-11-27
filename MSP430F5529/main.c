@@ -16,12 +16,12 @@
 #define PWM_MIN 15
 #define PWM_TURN_ON 30
 #define PWM_MAX 255
-volatile int desiredTemperature = 25;
+volatile int desiredTemperature = 35;
 volatile float currentSpeed = 30;
 
 // Data transmission
 volatile unsigned char remainingOutData = 0;
-volatile unsigned char outData[3];
+volatile unsigned char outData[8];
 
 void configurePWM() {
     // P1.2 is the output
@@ -126,6 +126,12 @@ __interrupt void newADC(void) {
         // Determine the offset and adjust the fan speed
         float difference = tempC - desiredTemperature;
         currentSpeed = currentSpeed + (difference * K);
+        if (currentSpeed > 255) {
+            currentSpeed = 255;
+        }
+        if (currentSpeed < 0) {
+            currentSpeed = 0;
+        }
         if (TA0CCR1 == PWM_OFF) {
             if (currentSpeed > PWM_OFF) {
                 TA0CCR1 = PWM_TURN_ON;
@@ -140,13 +146,21 @@ __interrupt void newADC(void) {
             }
         }
 
-        // Convert to value that 500 times bigger to use an int to send
-        unsigned int tempCTrans = (int) ((tempK - 273.0) * 500.0);
-        remainingOutData = 2;
-        outData[2] = tempCTrans >> 8;
-        outData[1] = tempCTrans & 0xFF;
+        remainingOutData = 7;
+        int toSend = tempC * 100; // Two decimal places
+        int i;
+        for (i = 3; i < 8; i++) {
+            if (i == 5) {
+                outData[5] = '.';
+            } else {
+                outData[i] = (toSend % 10) + '0';
+                toSend = toSend / 10;
+            }
+        }
+        outData[2] = ' ';
+        outData[1] = 'C';
         outData[0] = '\n';
-        UCA1TXBUF = outData[2];
+        UCA1TXBUF = outData[7];
         break;
     }
     default:
